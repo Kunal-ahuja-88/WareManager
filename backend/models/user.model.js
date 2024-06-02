@@ -1,5 +1,7 @@
 import mongoose , {Schema} from "mongoose"
 import bcrypt from "bcryptjs"
+
+
 const userSchema =  new Schema({
       name : {
         type:String,
@@ -19,7 +21,7 @@ const userSchema =  new Schema({
         type:String,
         required:[true,"Please add a passowrd"],
         minLength:[6,"Password must be upto 6 characters"],
-        maxLength:[25,"Password must not be more than 25 characters"]
+
       },
       photo : {
         type:String,

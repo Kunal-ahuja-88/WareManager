@@ -3,6 +3,14 @@ import { ApiError } from "../middleware/ApiError.js";
 import { User } from "../models/user.model.js"
 import jwt from "jsonwebtoken"
 
+const generateToken = (id) => {
+    return jwt.sign({ id },
+        process.env.JWT_ACCESS_SECRET_KEY,
+        {
+            expiresIn: process.env.ACCESS_TOKEN_EXPIRY
+        }
+    )
+}
 
 const registerUser = asyncHandler(async (req, res) => {
     console.log("Request body:", req.body);
@@ -36,14 +44,7 @@ const registerUser = asyncHandler(async (req, res) => {
         password
     })
 
-    const generateToken = (id) => {
-        return jwt.sign({ id },
-            process.env.JWT_ACCESS_SECRET_KEY,
-            {
-                expiresIn: process.env.ACCESS_TOKEN_EXPIRY
-            }
-        )
-    }
+   
 
     const token = generateToken(user._id)
 
@@ -56,7 +57,7 @@ const registerUser = asyncHandler(async (req, res) => {
     })
 
     if (user) {
-        const { _id, name, email, photo, phone, bio } = user
+        const { _id, name, email, photo, phone, bio } = user;
         res.status(201).json({
             _id,
             name,
@@ -137,8 +138,76 @@ const logoutUser = asyncHandler(async(req,res)=> {
     return res.status(200).json({message : "Succesfully logged out"})
 })
 
+const getUser = asyncHandler(async(req,res)=> {
+
+const user = await User.findById(req.user._id)
+
+if(user) {
+    if (user) {
+        const { _id, name, email, photo, phone, bio } = user
+        res.status(200).json({
+            _id,
+            name,
+            email,
+            photo,
+            phone,
+            bio
+        })
+
+    }
+
+    else {
+        throw new ApiError(400, "Invalid User data")
+    }
+
+}
+})
+
+const loginStatus = asyncHandler(async(req,res)=> {
+     const token = req.cookies.token;
+     if(!token) {
+        return res.json(false);
+     }
+
+     const verified = jwt.verify(token,process.env.JWT_ACCESS_SECRET_KEY);
+     if(verified) {
+        return res.json(true);
+     }
+     return res.json(false);
+})
+
+const updateUser = asyncHandler(async (req, res) => {
+    const user = await User.findById(req.user._id);
+
+    if (user) {
+        const { name, email, photo, phone, bio } = req.body;
+        user.name = name || user.name;
+        user.email = email || user.email;
+        user.photo = photo || user.photo;
+        user.phone = phone || user.phone;
+        user.bio = bio || user.bio;
+
+        const updatedUser = await user.save();
+        res.status(200).json({
+            _id: updatedUser._id,
+            name: updatedUser.name,
+            email: updatedUser.email,
+            photo: updatedUser.photo,
+            phone: updatedUser.phone,
+            bio: updatedUser.bio
+        });
+    } else {
+        throw new ApiError(400, "User not found");
+    }
+});
+
+
+
 export {
     registerUser,
     loginUser,
-    logoutUser
+    logoutUser,
+    getUser,
+    loginStatus,
+    updateUser
 }
