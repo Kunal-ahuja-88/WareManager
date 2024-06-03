@@ -2,6 +2,9 @@ import asyncHandler from "express-async-handler"
 import { ApiError } from "../middleware/ApiError.js";
 import { User } from "../models/user.model.js"
 import jwt from "jsonwebtoken"
+import bcrypt from "bcryptjs"
+import { Token } from "../models/token.model.js";
+import crypto from "crypto"
 
 const generateToken = (id) => {
     return jwt.sign({ id },
@@ -201,7 +204,44 @@ const updateUser = asyncHandler(async (req, res) => {
     }
 });
 
+const changePassword = asyncHandler(async(req,res)=> {
+      const user = await User.findById(req.user._id)
 
+      const {oldPassword , password} = req.body;
+
+      if(!user) {
+       throw new ApiError(400,"User not found")
+      }
+
+      if(!oldPassword || !password) {
+        throw new ApiError(400,"Please add old and new password")
+      }
+
+     const passswordIsCorrect = await bcrypt.compare(oldPassword,user.password)
+     
+     if(user && passswordIsCorrect) {
+        user.password = password
+        await user.save()
+        res.status(200).send("Password changed succesfully")
+     } else {
+        throw new ApiError(400,"Old password is incorrect")
+     }
+
+})
+
+const forgotPassword = asyncHandler(async (req, res) => {
+    const { email } = req.body;
+    const user = await User.findOne({ email });
+
+    if (!user) {
+        throw new ApiError(400, "User does not exist");
+    }
+
+    // Create reset token
+    let resetToken = crypto.randomBytes(32).toString("hex") + user._id;
+    console.log(resetToken);
+    res.send("Forgot password");
+});
 
 export {
     registerUser,
@@ -209,5 +249,7 @@ export {
     logoutUser,
     getUser,
     loginStatus,
-    updateUser
+    updateUser,
+    changePassword,
+    forgotPassword
 }
