@@ -5,6 +5,7 @@ import jwt from "jsonwebtoken"
 import bcrypt from "bcryptjs"
 import { Token } from "../models/token.model.js";
 import crypto from "crypto"
+import sendEmail from "../utils/sendEmail.js"
 
 const generateToken = (id) => {
     return jwt.sign({ id },
@@ -13,7 +14,7 @@ const generateToken = (id) => {
             expiresIn: process.env.ACCESS_TOKEN_EXPIRY
         }
     )
-}
+};
 
 const registerUser = asyncHandler(async (req, res) => {
     console.log("Request body:", req.body);
@@ -127,7 +128,7 @@ const loginUser = asyncHandler(async (req, res) => {
         throw new ApiError(400, "Invalid email or password")
     }
 
-})
+});
 
 const logoutUser = asyncHandler(async(req,res)=> {
     
@@ -139,7 +140,7 @@ const logoutUser = asyncHandler(async(req,res)=> {
         secure: true
     });
     return res.status(200).json({message : "Succesfully logged out"})
-})
+});
 
 const getUser = asyncHandler(async(req,res)=> {
 
@@ -164,7 +165,7 @@ if(user) {
     }
 
 }
-})
+});
 
 const loginStatus = asyncHandler(async(req,res)=> {
      const token = req.cookies.token;
@@ -177,7 +178,7 @@ const loginStatus = asyncHandler(async(req,res)=> {
         return res.json(true);
      }
      return res.json(false);
-})
+});
 
 const updateUser = asyncHandler(async (req, res) => {
     const user = await User.findById(req.user._id);
@@ -227,7 +228,7 @@ const changePassword = asyncHandler(async(req,res)=> {
         throw new ApiError(400,"Old password is incorrect")
      }
 
-})
+});
 
 const forgotPassword = asyncHandler(async (req, res) => {
     const { email } = req.body;
@@ -236,12 +237,85 @@ const forgotPassword = asyncHandler(async (req, res) => {
     if (!user) {
         throw new ApiError(400, "User does not exist");
     }
+      
 
-    // Create reset token
+    // Delete token if it exists in db
+    let token = await Token.findOne({userId:user._id})
+    if(token) {
+        await token.deleteOne()
+    }
+    // Creating reset token
     let resetToken = crypto.randomBytes(32).toString("hex") + user._id;
-    console.log(resetToken);
-    res.send("Forgot password");
+     console.log(resetToken)
+     
+    const hashedToken = crypto.
+    createHash("sha256").
+    update(resetToken).
+    digest("hex")
+
+    await new Token({
+        userId:user._id,
+        token:hashedToken,
+        createdAt : Date.now(),
+        expiresAt:Date.now() + 30 * (60*1000) 
+
+    }).save()
+
+    const resetUrl =  `${process.env.FRONTEND_URL}/reset/password/${resetToken}`
+
+    const message = `
+    <h2>Hello ${user.name}</h2>
+    <p>Please click on the link below to reset your password</p>  
+    <p>This reset link is valid for only 30 minutes.</p>
+
+    <a href=${resetUrl} clicktracking=off>${resetUrl}</a>
+
+    <p>Regards...</p>
+    <p>WareManger Team</p>
+  `;
+
+    const subject = "Password reset request"
+    const send_to = user.email
+    const sent_from=process.env.EMAIL_USER
+
+    try {
+        await sendEmail(subject,message,send_to,sent_from);
+        res.status(200).json({success:true,message:"Reset email sent"})
+    } catch (error) {
+        throw new ApiError("Email not sent , please try again")
+    }
+
+
+
 });
+
+const resetPassword = asyncHandler(async(req,res)=> {
+      const {password} = req.body;
+      const {resetToken} = req.params;
+      
+      // comparing to that of db
+    const hashedToken = crypto.
+    createHash("sha256").
+    update(resetToken).
+    digest("hex")
+    
+    const userToken = await Token.findOne({
+        token:hashedToken,
+        expiresAt:{$gt:Date.now()}
+    })
+    if(!userToken) {
+        throw new ApiError(400,"Invalid or Expired token")
+    }
+
+   const user = await User.findOne({_id:userToken.userId})
+   user.password=password
+   await user.save();
+
+   res.status(200).json({
+    message : "Password reset succesfully , now login"
+   })
+
+})
 
 export {
     registerUser,
@@ -251,5 +325,6 @@ export {
     loginStatus,
     updateUser,
     changePassword,
-    forgotPassword
+    forgotPassword,
+    resetPassword
 }

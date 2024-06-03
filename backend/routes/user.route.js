@@ -1,5 +1,5 @@
 import { Router } from "express";
-import { loginUser, registerUser,logoutUser , getUser ,loginStatus , updateUser,changePassword, forgotPassword} from "../controllers/user.controller.js";
+import { loginUser, registerUser,logoutUser , getUser ,loginStatus , updateUser,changePassword, forgotPassword, resetPassword} from "../controllers/user.controller.js";
 import protect from "../middleware/authMiddleware.js"
 const router = Router();
 
@@ -12,6 +12,7 @@ router.get("/loggedin",loginStatus)
 router.patch("/update",protect,updateUser)
 router.patch("/changepassword",protect,changePassword);
 router.post("/forgotpassword",forgotPassword);
+router.put("/resetpassword/:resetToken",resetPassword)
 
 
 export default router

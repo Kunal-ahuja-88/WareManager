@@ -31,6 +31,4 @@ const sendEmail = async (subject,message,send_to,sent_from,reply_to) => {
 
 
 
-export {
-    sendEmail
-}
+export default sendEmail
